@@ -88,6 +88,7 @@ public sealed partial class SettingsPage : Page, IPageActions
     private async void Link_Issues(object sender, RoutedEventArgs e)   => await AppLinks.OpenAsync(AppLinks.Issues);
     private async void Link_Releases(object sender, RoutedEventArgs e) => await AppLinks.OpenAsync(AppLinks.Releases);
     private async void Link_Donate(object sender, RoutedEventArgs e)   => await AppLinks.OpenAsync(AppLinks.Donate);
+    private async void Link_KoFi(object sender, RoutedEventArgs e)     => await AppLinks.OpenAsync(AppLinks.KoFi);
     private async void Link_Faq(object sender, RoutedEventArgs e)        => await AppLinks.OpenAsync(AppLinks.Faq);
     private async void Link_IconCredit(object sender, RoutedEventArgs e) => await AppLinks.OpenAsync(AppLinks.IconCredit);
 
@@ -99,7 +100,7 @@ public sealed partial class SettingsPage : Page, IPageActions
         AppSettings.Instance.Save();
     }
 
-    //jsut a quick sanity-check
+    // quick sanity-check
     private async void ApiKeyTest_Click(object sender, RoutedEventArgs e)
     {
         var key = ApiKeyBox.Password.Trim();

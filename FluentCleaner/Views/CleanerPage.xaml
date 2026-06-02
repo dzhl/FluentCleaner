@@ -194,12 +194,22 @@
                     <RowDefinition Height="Auto" />    <!-- Analyze / Run Cleaner buttons -->
                 </Grid.RowDefinitions>
 
-                <!-- scan progress bar; clips to card's CornerRadius automatically -->
+                <!-- real scan progress; ills per finished entry -->
                 <ProgressBar Grid.RowSpan="4"
                              VerticalAlignment="Top"
-                             IsIndeterminate="True"
+                             Maximum="100"
+                             Value="{x:Bind ViewModel.ScanProgress, Mode=OneWay}"
                              Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay,
                                  Converter={StaticResource BoolToVisibilityConverter}}" />
+                <TextBlock Grid.RowSpan="4"
+                           VerticalAlignment="Top"
+                           HorizontalAlignment="Center"
+                           Margin="0,6,0,0"
+                           FontSize="11"
+                           Opacity="0.6"
+                           Text="{x:Bind ViewModel.ProgressLabel, Mode=OneWay}"
+                           Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay,
+                               Converter={StaticResource BoolToVisibilityConverter}}" />
 
                 <!-- Results header; visible while the list is showing (not in detail view) -->
                 <Grid Grid.Row="0"
@@ -212,7 +222,7 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0"
-                               Text="Analysis results"
+                               Text="Results"
                                Style="{StaticResource BodyStrongTextBlockStyle}"
                                VerticalAlignment="Center" />
 

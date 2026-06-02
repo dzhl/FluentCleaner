@@ -1,8 +1,8 @@
-using System.IO.Enumeration;
-using System.Runtime.InteropServices;
 using FluentCleaner.Models;
 using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
+using System.IO.Enumeration;
+using System.Runtime.InteropServices;
 
 namespace FluentCleaner.Services;
 
@@ -15,11 +15,11 @@ public class CleaningService
     private readonly PathExpander _expander = new();
 
     // --- Public api --------------------------------------------------
-    public Task<ScanResult> AnalyzeAsync(CleanerEntry entry, IProgress<string>? progress = null, CancellationToken token = default) =>
-        Task.Run(() => Analyze(entry, progress, token), token);
+    public Task<ScanResult> AnalyzeAsync(CleanerEntry entry, IProgress<string>? progress = null, CancellationToken token = default)
+        => Task.Run(() => Analyze(entry, progress, token), token);
 
-    public Task<(int count, long bytes)> CleanAsync(ScanResult result, IProgress<string>? progress = null, CancellationToken token = default) =>
-        Task.Run(() => Clean(result, progress, token), token);
+    public Task<(int count, long bytes)> CleanAsync(ScanResult result, IProgress<string>? progress = null, CancellationToken token = default)
+        => Task.Run(() => Clean(result, progress, token), token);
 
     // --- Analyze --------------------------------------------------
 
@@ -46,8 +46,7 @@ public class CleaningService
                 {
                     if (result.FilesToDelete.Contains(file)) continue;
 
-                    //open with DELETE access; same as File.Delete() internally.
-                    //returns -1 if another process holds it without FILE_SHARE_DELETE, so we skip.
+                    // Skip files that are truly inaccessible (hard lock / no permissions).
                     var size = TryGetDeletableSize(file);
                     if (size < 0) continue;
 
@@ -118,7 +117,7 @@ public class CleaningService
 
         foreach (var sub in dirs)
         {
-            token.ThrowIfCancellationRequested(); //one check per folder is enough; no need to go per-file
+            token.ThrowIfCancellationRequested(); //one check per folder is enough;no need to go per-file
             progress?.Report(sub);
             foreach (var f in EnumerateFilesSafe(sub, patterns, recurse: true, progress, token))
                 yield return f;
@@ -160,7 +159,7 @@ public class CleaningService
 
         foreach (var file in result.FilesToDelete)
         {
-            token.ThrowIfCancellationRequested(); // stop between files so we never delete half an entry
+            token.ThrowIfCancellationRequested(); //stop between files so we never delete half an entry
             try
             {
                 var size = new FileInfo(file).Length;
@@ -170,7 +169,6 @@ public class CleaningService
                 progress?.Report($"Deleted: {file}");
             }
             catch { } //in use or already gone; skip silently
-                      //catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[CleanFail] {file}\n  {ex.GetType().Name}: {ex.Message}"); }
         }
 
         foreach (var regItem in result.RegistryToDelete)
@@ -263,9 +261,9 @@ public class CleaningService
     //The goal here is simply to avoid counting files that are already undeletable right now
     private static long TryGetDeletableSize(string path)
     {
-        const uint DELETE         = 0x00010000;
+        const uint DELETE = 0x00010000;
         const uint FILE_SHARE_ALL = 0x7;   // Read | Write | Delete
-        const uint OPEN_EXISTING  = 3;
+        const uint OPEN_EXISTING = 3;
 
         using var handle = CreateFileW(path, DELETE, FILE_SHARE_ALL,
                                        IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);

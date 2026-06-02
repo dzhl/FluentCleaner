@@ -7,12 +7,11 @@ using System.Collections.ObjectModel;
 namespace FluentCleaner.ViewModels;
 
 //Terminal backend; pure command dispatcher
-// All my domain logic lives in the three Cli*Module classes below.
+// All my domain logic lives in the two Cli*Module classes below.
 public partial class CliViewModel : ObservableObject
 {
-    private readonly CliCleanerModule    _cleaner = new();   // winapp2 clean/analyze/list/categories
-    private readonly CliDebloatModule    _appx    = new();   // appx debloater module
-    private readonly CliExtensionsModule _tools   = new();   // Extensions\ tool runner
+    private readonly CliCleanerModule _cleaner = new();   // winapp2 clean/analyze/list/categories
+    private readonly CliDebloatModule _appx    = new();   // appx debloater module
 
     // Hidden/experimental terminal commands. Keeping them centralized makes it obvious
     // which commands are not regular UI features.
@@ -68,10 +67,6 @@ public partial class CliViewModel : ObservableObject
             // Hidden/experimental commands (backdrop …);centralized in HiddenCommandSuggestions
             source = hidden;
 
-        else if (verb == "run")
-            // "run <tool>"; delegates to CliExtensionsModule (live Extensions\ scan)
-            source = _tools.GetSuggestions(query);
-
         else if (verb == "appx")
         {
             // "appx <sub>" ; delegates to CliDebloatModule (Winappx.ini entries)
@@ -96,7 +91,7 @@ public partial class CliViewModel : ObservableObject
     }
 
     // Returns suggestions for experimental commands such as "backdrop".
-    // Normal cleaner entries and extension tools are handled by GetSuggestions itself.
+    // Normal cleaner entries are handled by GetSuggestions itself.
     private static bool TryGetHiddenCommandSuggestions(string verb, string query, out IEnumerable<string> suggestions)
     {
         if (HiddenCommandSuggestions.TryGetValue(verb, out var values))
@@ -129,8 +124,6 @@ public partial class CliViewModel : ObservableObject
             case "scan":
             case "list":
             case "categories": await _cleaner.ExecuteAsync(verb, arg, Output, v => IsBusy = v); break;
-            case "run":        await _tools.RunAsync(arg, Output, v => IsBusy = v);             break;
-            case "tools":      _tools.List(Output);                                             break;
             case "appx":       await _appx.ExecuteAsync(arg, Output, v => IsBusy = v);          break;
             case "theme":      RunTheme(arg);                                                    break;
             case "backdrop":   RunBackdrop(arg);                                                 break;
@@ -221,10 +214,6 @@ public partial class CliViewModel : ObservableObject
                 clean category <name>      clean a whole category
                 list [filter]              list entries
                 categories                 list categories
-
-              Tools
-                tools                      list available tools
-                run <tool> [option]        run a tool
 
               Debloat
                 appx list                  list all installed AppX packages

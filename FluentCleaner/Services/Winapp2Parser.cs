@@ -19,7 +19,9 @@ public class Winapp2Parser
         var entries = new List<CleanerEntry>();
         CleanerEntry? current = null;
 
-        foreach (var rawLine in content.Split('\n'))
+        //Split on both \r and \n;WinUI 3 TextBox saves with \r only (not \r\n),
+        //so splitting on just \n would leave the entire file as a single line
+        foreach (var rawLine in content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
         {
             var line = rawLine.Trim();
             if (line.Length == 0 || line[0] == ';' || line[0] == '#') continue;

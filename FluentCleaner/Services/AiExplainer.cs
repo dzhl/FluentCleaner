@@ -71,6 +71,100 @@ public static class AiExplainer
         }
     }
 
+    // Generates a Winapp2 INI entry from a plain-English description.
+    public static Task<string> GenerateEntryAsync(string description) =>
+        GenerateAsync(
+            userMsg: $"Generate a Winapp2 cleaner entry for: {description}",
+            errorPrefix: "; ",
+            systemPrompt:
+                "You are a Winapp2 database expert. Generate a valid Winapp2 INI cleaner entry from the user description. " +
+                "Output ONLY raw INI — no explanation, no markdown, no code fences.\n" +
+                "STRUCTURE: [App Name]\n" +
+                "DETECTION (include at least one):\n" +
+                "  DetectKey=HKLM\\Software\\App  or  HKLM\\Software\\App|ValueName\n" +
+                "  DetectFile=%LocalAppData%\\App\\*\n" +
+                "  SpecialDetect=DET_CHROME|DET_FIREFOX|DET_EDGE|DET_OPERA|DET_THUNDERBIRD|DET_IE|DET_WINSTORE\n" +
+                "  Multiple detect lines use OR logic.\n" +
+                "FILE KEYS:\n" +
+                "  FileKey1=PATH|PATTERN  or  PATH|PATTERN|RECURSE  or  PATH|PATTERN|REMOVESELF\n" +
+                "  Multiple patterns: FileKey1=PATH|*.log;*.tmp;*.bak\n" +
+                "REGISTRY KEYS:\n" +
+                "  RegKey1=HKCU\\Software\\App  or  HKCU\\Software\\App|ValueName\n" +
+                "  Hives: HKCU HKLM HKCR HKU HKCC\n" +
+                "EXCLUDE KEYS:\n" +
+                "  ExcludeKey1=FILE|%AppData%\\App\\|important.dat\n" +
+                "  ExcludeKey2=PATH|%AppData%\\App\\Keep\\\n" +
+                "PATH VARIABLES:\n" +
+                "  %AppData% %LocalAppData% %LocalLowAppData% %ProgramData%\n" +
+                "  %ProgramFiles% %ProgramFiles(x86)% %UserProfile%\n" +
+                "  %SystemRoot% %System% %SystemDrive% %Temp%\n" +
+                "  %Documents% %Desktop% %Music% %Pictures% %Videos%\n" +
+                "OTHER FIELDS: Section=  Warning=  Default=True|False");
+
+    // Generates a PowerShell cleanup script from a plain-English description.
+    public static Task<string> GenerateScriptAsync(string description) =>
+        GenerateAsync(
+            userMsg: $"Generate a PowerShell script for: {description}",
+            errorPrefix: "# ",
+            systemPrompt:
+                "You are a Windows PowerShell expert. Generate a practical, well-written PowerShell script based on the user description. " +
+                "Output ONLY raw PowerShell — no explanation, no markdown, no code fences.\n" +
+                "RULES:\n" +
+                "  - First line MUST be a # comment briefly describing what the script does.\n" +
+                "  - Use $env: variables where appropriate: $env:LOCALAPPDATA $env:APPDATA $env:TEMP $env:USERPROFILE $env:ProgramFiles $env:SystemRoot.\n" +
+                "  - Always use -ErrorAction SilentlyContinue or try/catch — never let the script crash.\n" +
+                "  - Use Write-Host to report progress.\n" +
+                "  - NEVER use Invoke-Expression or download and execute remote code.");
+
+    // Shared HTTP helper used by GenerateEntryAsync and GenerateScriptAsync.
+    private static async Task<string> GenerateAsync(string userMsg, string systemPrompt, string errorPrefix)
+    {
+        var apiKey = AppSettings.Instance.GroqApiKey
+                     ?? Environment.GetEnvironmentVariable("GROQ_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            return $"{errorPrefix}No API key configured — go to Settings → AI explanations.";
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+            req.Headers.Add("Authorization", $"Bearer {apiKey}");
+            req.Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    model      = "llama-3.3-70b-versatile",
+                    max_tokens = 500,
+                    messages   = new[]
+                    {
+                        new { role = "system", content = systemPrompt },
+                        new { role = "user",   content = userMsg }
+                    }
+                }),
+                Encoding.UTF8, "application/json");
+
+            var res  = await _http.SendAsync(req);
+            var json = await res.Content.ReadAsStringAsync();
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("error", out var err))
+            {
+                var msg = err.TryGetProperty("message", out var m) ? m.GetString() : "Unknown error";
+                return $"{errorPrefix}Groq error: {msg}";
+            }
+
+            return root
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString() ?? $"{errorPrefix}No response received.";
+        }
+        catch (Exception ex)
+        {
+            return $"{errorPrefix}Could not reach Groq API: {ex.Message}";
+        }
+    }
+
     //just a quick key test;asks Groq one sentence about FluentCleaner; returns "✓ " or "✗"
     public static async Task<string> TestKeyAsync(string apiKey)
     {

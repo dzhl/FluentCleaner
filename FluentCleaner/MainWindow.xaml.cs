@@ -1,3 +1,4 @@
+using FluentCleaner.Services;
 using FluentCleaner.Views;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -20,6 +21,10 @@ public sealed partial class MainWindow : Window
         SyncSearchState();                           //enable/disable search for initial page
         SizeChanged += MainWindow_SizeChanged;       //watch for window resize; compact search
         UpdateTitleSearch(AppWindow.Size.Width);     //apply correct search mode on first load
+
+        // show donation tip once; never again after the user dismisses it
+        if (!AppSettings.Instance.DonationDismissed)
+            DonationTip.IsOpen = true;
     }
 
     // --- TitleBar pane toggle -------------------------------------------------
@@ -32,10 +37,11 @@ public sealed partial class MainWindow : Window
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         TitleSearchBox.Text = "";
-        if (NavFrame.Content is ISearchablePage old)
+        var prevContent = NavFrame.Content;  // capture before navigation
+        if (prevContent is ISearchablePage old)
             old.OnSearch("");
 
-        var transition = new DrillInNavigationTransitionInfo();//zoom in transition
+        var transition = new DrillInNavigationTransitionInfo();
 
         if (args.IsSettingsSelected)
         {
@@ -45,9 +51,11 @@ public sealed partial class MainWindow : Window
         {
             switch (item.Tag)
             {
-                case "Cleaner":  NavFrame.Navigate(typeof(CleanerPage),  null, transition); break;
+                case "Cleaner":
+                    NavFrame.Navigate(typeof(CleanerPage), null, transition);
+                    break;
                 case "Terminal": NavFrame.Navigate(typeof(TerminalPage), null, transition); break;
-                case "Tools":    NavFrame.Navigate(typeof(ToolsPage),    null, transition); break;
+                case "Custom":   NavFrame.Navigate(typeof(CustomPage),   null, transition); break;
             }
         }
 
@@ -105,5 +113,33 @@ public sealed partial class MainWindow : Window
 
         if (!compact)
             TitleSearchBox.Width = width < 700 ? 220 : 280;
+    }
+
+    // --- Donation tip --------------------------------------------------------
+
+    private async void DonationTip_PayPal(object sender, RoutedEventArgs e)
+    {
+        DonationTip.IsOpen = false;
+        await AppLinks.OpenAsync(AppLinks.Donate);
+    }
+
+    private async void DonationTip_KoFi(object sender, RoutedEventArgs e)
+    {
+        DonationTip.IsOpen = false;
+        await AppLinks.OpenAsync(AppLinks.KoFi);
+    }
+
+    private async void DonationTip_Star(object sender, RoutedEventArgs e)
+    {
+        DonationTip.IsOpen = false;
+        await AppLinks.OpenAsync(AppLinks.GitHub);
+    }
+
+    // explicit opt-out; X just closes for this session, tip comes back next launch
+    private void DonationTip_Dismiss(object sender, RoutedEventArgs e)
+    {
+        DonationTip.IsOpen = false;
+        AppSettings.Instance.DonationDismissed = true;
+        AppSettings.Instance.Save();
     }
 }

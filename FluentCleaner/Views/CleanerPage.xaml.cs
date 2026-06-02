@@ -3,6 +3,7 @@ using FluentCleaner.ViewModels;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace FluentCleaner.Views;
 
@@ -26,6 +27,15 @@ public sealed partial class CleanerPage : Page, ISearchablePage, IPageActions
             if (paths.Count == 0) paths.Add(Path.Combine(AppContext.BaseDirectory, "Winapp2.ini"));
             await ViewModel.LoadWinapp2Async(paths);
         };
+    }
+
+    // OnNavigatedTo fires on every visit, even with NavigationCacheMode="Required".
+    // Loaded only fires once — so this is the right place to pick up new custom entries.
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        if (_loaded)
+            _ = ViewModel.RefreshCustomEntriesAsync();
     }
 
     // --- ISearchablePage ----------------------------------------------------------
@@ -83,6 +93,7 @@ public sealed partial class CleanerPage : Page, ISearchablePage, IPageActions
     {
         if (sender is MenuFlyoutItem { Tag: CleanerEntryViewModel vm })
         {
+            if (!await CheckRunningBrowsersAsync([vm])) return;
             if (!await ConfirmWarningsAsync(ViewModel.GetWarningsForEntry(vm)))
                 return;
 
@@ -104,10 +115,11 @@ public sealed partial class CleanerPage : Page, ISearchablePage, IPageActions
 
         var dialog = new ContentDialog
         {
-            XamlRoot = XamlRoot,
-            Title = vm.Name,
+            XamlRoot       = XamlRoot,
+            CornerRadius   = new CornerRadius(8),
+            Title          = vm.Name,
             CloseButtonText = "Close",
-            Content = textBlock
+            Content        = textBlock
         };
 
         // Show the dialog immediately (don't await), then fill in the answer
@@ -117,7 +129,7 @@ public sealed partial class CleanerPage : Page, ISearchablePage, IPageActions
     }
 
 
-    // Category flyout; same trick with CleanerCategoryViewModel
+    // Category flyout;same trick with CleanerCategoryViewModel
     private async void CatAnalyze_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem { Tag: CleanerCategoryViewModel vm })
@@ -128,6 +140,8 @@ public sealed partial class CleanerPage : Page, ISearchablePage, IPageActions
     {
         if (sender is MenuFlyoutItem { Tag: CleanerCategoryViewModel vm })
         {
+            var selected = vm.Entries.Where(e => e.IsSelected).ToList();
+            if (!await CheckRunningBrowsersAsync(selected)) return;
             if (!await ConfirmWarningsAsync(ViewModel.GetWarningsForCategory(vm)))
                 return;
 
@@ -140,12 +154,54 @@ public sealed partial class CleanerPage : Page, ISearchablePage, IPageActions
         if (!ViewModel.RunCleanerCommand.CanExecute(null))
             return;
 
+        if (!await CheckRunningBrowsersAsync()) return;
         if (!await ConfirmWarningsAsync(ViewModel.GetWarningsForSelectedEntries()))
             return;
 
         await ((IAsyncRelayCommand)ViewModel.RunCleanerCommand).ExecuteAsync(null);
     }
 
+    // Check for running browsers — only warns when browser entries are actually selected
+    private static readonly (string Process, string DisplayName, int[] LangSecRefs)[] KnownBrowsers =
+    [
+        ("chrome",  "Google Chrome",    [3029]),
+        ("firefox", "Mozilla Firefox",  [3026]),
+        ("msedge",  "Microsoft Edge",   [3006]),
+        ("opera",   "Opera",            [3027, 3035]),
+        ("brave",   "Brave",            [3034]),
+        ("vivaldi", "Vivaldi",          [3033]),
+    ];
+
+    private async Task<bool> CheckRunningBrowsersAsync(IEnumerable<CleanerEntryViewModel>? selectedEntries = null)
+    {
+        var selectedCodes = (selectedEntries ?? ViewModel.Categories.SelectMany(c => c.Entries).Where(e => e.IsSelected))
+            .Select(e => e.Entry.LangSecRef ?? -1)
+            .ToHashSet();
+
+        var running = KnownBrowsers
+            .Where(b => b.LangSecRefs.Any(selectedCodes.Contains))
+            .Where(b => System.Diagnostics.Process.GetProcessesByName(b.Process).Length > 0)
+            .Select(b => b.DisplayName)
+            .ToList();
+
+        if (running.Count == 0)
+            return true;
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot          = XamlRoot,
+            CornerRadius      = new CornerRadius(8),
+            Title             = "Browsers running",
+            PrimaryButtonText = "Continue anyway",
+            CloseButtonText   = "Cancel",
+            DefaultButton     = ContentDialogButton.Close,
+            Content           = $"Close these apps for best results:\n{string.Join(", ", running)}\n\nOpen browsers lock cache and history files — they will be skipped during cleaning."
+        };
+
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
+
+    // Show a warning dialog if any of the selected entries have warnings;return true to proceed with cleaning
     private async Task<bool> ConfirmWarningsAsync(IReadOnlyList<string> warnings)
     {
         if (warnings.Count == 0)
@@ -153,11 +209,12 @@ public sealed partial class CleanerPage : Page, ISearchablePage, IPageActions
 
         var dialog = new ContentDialog
         {
-            XamlRoot = XamlRoot,
-            Title = "Cleaning warning",
+            XamlRoot          = XamlRoot,
+            CornerRadius      = new CornerRadius(8),
+            Title             = "Cleaning warning",
             PrimaryButtonText = "Continue",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Close,
+            CloseButtonText   = "Cancel",
+            DefaultButton     = ContentDialogButton.Close,
             Content = new ScrollViewer
             {
                 MaxHeight = 360,

@@ -50,6 +50,9 @@ public class AppSettings
     // Groq API key for AI entry explanations; null = not configured
     public string? GroqApiKey { get; set; }
 
+    // true once the user dismisses the startup donation tip
+    public bool DonationDismissed { get; set; } = false;
+
 
     // -----------------------------------------------------------------------
 

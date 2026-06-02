@@ -30,9 +30,15 @@
                      Message="Put a lot of work into this — if it helps you and you feel like saying thanks, a donation would really mean a lot. ♥">
                 <InfoBar.Content>
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-                        <Button Content="Support the project"
-                                Style="{StaticResource AccentButtonStyle}"
-                                Click="Link_Donate" />
+                        <DropDownButton Style="{StaticResource AccentButtonStyle}"
+                                        Content="Support the project">
+                            <DropDownButton.Flyout>
+                                <MenuFlyout Placement="Bottom">
+                                    <MenuFlyoutItem Text="Donate via PayPal" Click="Link_Donate" />
+                                    <MenuFlyoutItem Text="Donate via Ko-fi"  Click="Link_KoFi" />
+                                </MenuFlyout>
+                            </DropDownButton.Flyout>
+                        </DropDownButton>
                         <Button Content="Maybe later"
                                 Click="DonationBanner_Dismiss" />
                     </StackPanel>

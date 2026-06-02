@@ -15,8 +15,8 @@
     <WindowsPackageType>None</WindowsPackageType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyVersion>26.05.15</AssemblyVersion>
-    <FileVersion>26.05.15</FileVersion>
+    <AssemblyVersion>26.05.27</AssemblyVersion>
+    <FileVersion>26.05.27</FileVersion>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
